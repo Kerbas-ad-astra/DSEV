@@ -57,7 +57,8 @@ namespace WildBlueIndustries
         string[] rackNames = null;
         string[] bodyNames = null;
         string centerVestibuleName = null;
-        WBIResourceSwitcher switcher;
+        WBIConvertibleStorage switcher = null;
+        PartModule resourceDistributor = null;
 
         #region GUI
         [KSPEvent(guiActiveEditor = true, guiActive = false, guiName = "Toggle center vestibule")]
@@ -172,6 +173,7 @@ namespace WildBlueIndustries
 
             if (protoNode.HasValue("centerVestibuleName"))
                 centerVestibuleName = protoNode.GetValue("centerVestibuleName");
+
         }
 
         public override void OnStart(StartState state)
@@ -180,7 +182,17 @@ namespace WildBlueIndustries
             int nextIndex = -1;
 
             //Find the switch if any.
-            switcher = this.part.FindModuleImplementing<WBIResourceSwitcher>();
+            switcher = this.part.FindModuleImplementing<WBIConvertibleStorage>();
+
+            //Find the resource distributor if any
+            int totalCount = this.part.Modules.Count;
+            PartModule module;
+            for (int index = 0; index < totalCount; index++)
+            {
+                module = this.part.Modules[index];
+                if (module.moduleName == "WBIResourceDistributor")
+                    resourceDistributor = module;
+            }
 
             //Hide base GUI
             Events["NextMesh"].guiActive = false;
@@ -189,18 +201,12 @@ namespace WildBlueIndustries
             Events["PrevMesh"].guiActive = false;
 
             //Set initial values
-            Log("rack configuration: " + rackConfiguration);
             if (rackConfiguration == RackConfigurations.Unknown)
                 rackConfiguration = kDefaultRacks;
             Log("rack configuration: " + rackConfiguration);
 
             if (endCapIndex == -1)
                 endCapIndex = kDefaultEndCapIndex;
-
-            //Set the visible objects
-            SetVisibleObjects();
-            if (HighLogic.LoadedSceneIsEditor)
-                UpdateResources();
 
             //Setup the GUI
             if (endCapNames != null)
@@ -247,6 +253,11 @@ namespace WildBlueIndustries
                     Events["NextRackConfiguration"].guiName = kNoRacks;
                     break;
             }
+
+            //Set the visible objects
+            SetVisibleObjects();
+            if (HighLogic.LoadedSceneIsEditor)
+                UpdateResources();
 
         }
         #endregion
@@ -295,13 +306,29 @@ namespace WildBlueIndustries
             {
                 if (fuelTankTransform.Contains(bodyNames[bodyIndex]))
                 {
+                    switcher.isEnabled = true;
+                    switcher.enabled = true;
                     switcher.SetGUIVisible(true);
+                    if (resourceDistributor != null)
+                    {
+                        resourceDistributor.isEnabled = true;
+                        resourceDistributor.enabled = true;
+                        resourceDistributor.Events["SetupDistribution"].guiActive = true;
+                        resourceDistributor.Events["SetupDistribution"].guiActiveEditor = true;
+                    }
                 }
                 else
                 {
                     switcher.SetGUIVisible(false);
                     switcher.isEnabled = false;
                     switcher.enabled = false;
+                    if (resourceDistributor != null)
+                    {
+                        resourceDistributor.isEnabled = false;
+                        resourceDistributor.enabled = false;
+                        resourceDistributor.Events["SetupDistribution"].guiActive = false;
+                        resourceDistributor.Events["SetupDistribution"].guiActiveEditor = false;
+                    }
                 }
             }
 
